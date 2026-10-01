@@ -195,5 +195,160 @@ A live listener was initiated on port `8443` using issued credentials and evalua
 3. **Short-Lived Credentials**: Workload certificates issued via Vault PKI default to short TTLs, mitigating the impact of compromised client credentials.
 
 ```
+------------------------------------------------------------------------------------------------------------------------------
+---
+
+### Markdown to Add to `README.md`
+
+```markdown
+---
+
+## Getting Started & Startup Runbook
+
+Follow this operational runbook to start up, unseal, and access the infrastructure components after instance provisioning or system restarts.
+
+### Prerequisites
+
+- SSH client with identity key (`~/.ssh/id_ed25519_mesh`)
+- OpenSSL (v3.0+) and `jq` installed on the target host
+- AWS EC2 security group allowing:
+  - Inbound SSH (`22/tcp`)
+  - Inbound WireGuard mesh traffic (`8080/tcp`, `3478/udp`)
+
+---
+
+### Step 1: Connect to Core Infrastructure Node
+
+From your workstation, establish an administrative shell session to the controller:
+
+```bash
+ssh -i ~/.ssh/id_ed25519_mesh ubuntu@44.193.222.105
+
+```
+
+---
+
+### Step 2: Initialize & Verify the Headscale Mesh
+
+1. **Start the Headscale Control Daemon:**
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now headscale
+sudo systemctl status headscale --no-pager
+
+```
+
+
+2. **Bring Up the Core Node Mesh Interface (`tailscale0`):**
+```bash
+sudo systemctl enable --now tailscaled
+sudo tailscale up --login-server [http://127.0.0.1:8080](http://127.0.0.1:8080) --accept-routes
+
+```
+
+
+3. **Verify Overlay Routing & IP Allocation:**
+```bash
+sudo headscale nodes list
+tailscale ip -4
+
+```
+
+
+*Expected output:* Host registered under user `infra-core` with overlay IP `100.64.0.1`.
+
+---
+
+### Step 3: Start & Validate HashiCorp Vault
+
+1. **Start the Vault Service:**
+```bash
+sudo systemctl enable --now vault
+
+```
+
+
+2. **Verify Seal Status:**
+```bash
+export VAULT_ADDR="[http://127.0.0.1:8200](http://127.0.0.1:8200)"
+vault status
+
+```
+
+
+* If `Sealed: true`, unseal the cluster using your unseal key:
+```bash
+vault operator unseal
+
+```
+
+
+* If `Sealed: false`, the master key is resident in memory and the storage engine is unsealed.
+
+
+3. **Validate Mesh Overlay Health:**
+Ensure the Vault HTTP API responds across the private WireGuard address:
+```bash
+curl -s [http://100.64.0.1:8200/v1/sys/health](http://100.64.0.1:8200/v1/sys/health) | jq '{initialized, sealed, cluster_name}'
+
+```
+
+
+
+---
+
+### Step 4: Access the Graphical Web UI
+
+Because the Vault listener is bound exclusively to loopback and overlay interfaces (`127.0.0.1` and `100.64.0.1`) without public ingress, access the web dashboard via an encrypted local tunnel.
+
+#### Method A: SSH Port Forwarding (Recommended)
+
+1. **Configure Local SSH Alias (Run once on your local workstation):**
+```bash
+mkdir -p ~/.ssh
+cat << 'EOF' >> ~/.ssh/config
+Host vault-tunnel
+    HostName 44.193.222.105
+    User ubuntu
+    IdentityFile ~/.ssh/id_ed25519_mesh
+    LocalForward 8200 127.0.0.1:8200
+EOF
+chmod 600 ~/.ssh/config
+
+```
+
+
+2. **Open the Tunnel:**
+```bash
+ssh -N vault-tunnel
+
+```
+
+
+*(This process runs silently in the background while holding port `8200` open).*
+3. **Sign In:**
+* Navigate to: `http://localhost:8200/ui`
+* Select **Token** authentication.
+* Obtain your active root token on the server via `cat ~/.vault-token` and sign in.
+
+
+
+#### Method B: Native Mesh Direct Access
+
+If your workstation runs the Tailscale client joined to your Headscale coordination server:
+
+```powershell
+tailscale up --login-server [http://44.193.222.105:8080](http://44.193.222.105:8080) --accept-routes
+
+```
+
+Once registered on the node controller, browse directly to:
+
+```text
+[http://100.64.0.1:8200/ui](http://100.64.0.1:8200/ui)
+
+```
+
+```
 
 ```
