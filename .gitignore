@@ -1,0 +1,23 @@
+# Terraform / OpenTofu
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars
+*.tfvars.json
+
+# Certificates & Keys
+*.pem
+*.key
+*.crt
+*.csr
+
+# Vault data & secrets
+vault/data/
+.vault-token
+
+# Environment & OS
+.env
+.env.*
+.DS_Store
+Thumbs.db

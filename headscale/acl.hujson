@@ -1,0 +1,22 @@
+{
+  "hosts": {
+    "vault": "100.64.0.1"
+  },
+  "tagOwners": {
+    "tag:workload": ["infra-core"]
+  },
+  "acls": [
+    // Workloads can only reach HashiCorp Vault on port 8200
+    {
+      "action": "accept",
+      "src": ["tag:workload"],
+      "dst": ["vault:8200"]
+    },
+    // Core administrative management node retains full mesh egress
+    {
+      "action": "accept",
+      "src": ["infra-core"],
+      "dst": ["*:*"]
+    }
+  ]
+}
