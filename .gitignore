@@ -21,3 +21,4 @@ vault/data/
 .env.*
 .DS_Store
 Thumbs.db
+AWSCLIV2.msi
